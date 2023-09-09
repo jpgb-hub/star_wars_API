@@ -1,80 +1,43 @@
-import os
-from flask import Flask, request, jsonify, abort, url_for
-from flask_migrate import Migrate
-from flask_cors import CORS
-from utils import APIException
-from models import db, User, Planet, Character
+# Asumiendo que esto está en tu archivo models.py
 
-app = Flask(__name__)
-app.url_map.strict_slashes = False
+from sqlalchemy import Column, ForeignKey, Integer, String, create_engine, Table
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
-# Configuración de la base de datos
-db_url = os.getenv("DATABASE_URL")
-if db_url:
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_url.replace("postgres://", "postgresql://")
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = "sqlite:////tmp/test.db"
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+Base = declarative_base()
 
-MIGRATE = Migrate(app, db)
-db.init_app(app)
-CORS(app)
+class User(Base):
+    __tablename__ = 'user'
+    ID = Column(Integer, primary_key=True)
+    username = Column(String(250), nullable=False, unique=True)
+    firstname = Column(String(250), nullable=True)
+    lastname = Column(String(250), nullable=False)
+    password = Column(String(250), nullable=False)
+    
+    def to_dict(self):
+        return {
+            "ID": self.ID,
+            "username": self.username,
+            "firstname": self.firstname,
+            "lastname": self.lastname,
+        }
 
-# Manejador de errores personalizado
-@app.errorhandler(APIException)
-def handle_invalid_usage(error):
-    return jsonify(error.to_dict()), error.status_code
+class Planet(Base):
+    __tablename__ = 'planet'
+    ID = Column(Integer, primary_key=True)
+    name = Column(String(250), nullable=False, unique=True)
+    description = Column(String(500))
 
-@app.route('/users', methods=['GET'])
-def get_users():
-    users = User.query.all()
-    return jsonify([{'id': user.ID, 'username': user.username, 'firstname': user.firstname, 'lastname': user.lastname} for user in users])
+    def to_dict(self):
+        return {"ID": self.ID, "name": self.name, "description": self.description}
 
-@app.route('/users/<int:user_id>', methods=['GET'])
-def get_user(user_id):
-    user = User.query.filter_by(ID=user_id).first()
-    if not user:
-        abort(404)
-    return jsonify({'id': user.ID, 'username': user.username, 'firstname': user.firstname, 'lastname': user.lastname})
+class Character(Base):
+    __tablename__ = 'character'
+    ID = Column(Integer, primary_key=True)
+    name = Column(String(250), nullable=False, unique=True)
+    description = Column(String(500))
 
-@app.route('/users', methods=['POST'])
-def create_user():
-    data = request.json
-    if not data or not data.get('username') or not data.get('password') or not data.get('lastname'):
-        abort(400)
-    user = User(username=data['username'], password=data['password'], lastname=data['lastname'], firstname=data.get('firstname'))
-    db.session.add(user)
-    db.session.commit()
-    return jsonify({'id': user.ID}), 201
+    def to_dict(self):
+        return {"ID": self.ID, "name": self.name, "description": self.description}
 
-@app.route('/users/<int:user_id>', methods=['PUT'])
-def update_user(user_id):
-    data = request.json
-    user = User.query.filter_by(ID=user_id).first()
-    if not user:
-        abort(404)
-    if 'username' in data:
-        user.username = data['username']
-    if 'password' in data:
-        user.password = data['password']
-    if 'firstname' in data:
-        user.firstname = data['firstname']
-    if 'lastname' in data:
-        user.lastname = data['lastname']
-    db.session.commit()
-    return jsonify({'message': 'Usuario actualizado correctamente'})
-
-@app.route('/users/<int:user_id>', methods=['DELETE'])
-def delete_user(user_id):
-    user = User.query.filter_by(ID=user_id).first()
-    if not user:
-        abort(404)
-    db.session.delete(user)
-    db.session.commit()
-    return jsonify({'message': 'Usuario eliminado correctamente'})
-
-# Aquí puedes continuar agregando las rutas para Planetas, Personajes y Favoritos...
-
-if __name__ == '__main__':
-    PORT = int(os.environ.get('PORT', 3000))
-    app.run(host='0.0.0.0', port=PORT, debug=False)
+# Continuar con las relaciones y la tabla asociativa...

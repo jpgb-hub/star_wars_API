@@ -1,19 +1,72 @@
-from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import Column, ForeignKey, Integer, String, create_engine, Table
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 
-db = SQLAlchemy()
+Base = declarative_base()
 
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password = db.Column(db.String(80), unique=False, nullable=False)
-    is_active = db.Column(db.Boolean(), unique=False, nullable=False)
+# Tablas asociativas para las relaciones muchos-a-muchos
+user_planet_association = Table('user_planet', Base.metadata,
+    Column('user_id', Integer, ForeignKey('user.ID')),
+    Column('planet_id', Integer, ForeignKey('planet.ID'))
+)
 
-    def __repr__(self):
-        return '<User %r>' % self.username
+user_character_association = Table('user_character', Base.metadata,
+    Column('user_id', Integer, ForeignKey('user.ID')),
+    Column('character_id', Integer, ForeignKey('character.ID'))
+)
 
-    def serialize(self):
+class User(Base):
+    __tablename__ = 'user'
+    ID = Column(Integer, primary_key=True)
+    username = Column(String(250), nullable=False, unique=True)
+    firstname = Column(String(250), nullable=True)
+    lastname = Column(String(250), nullable=False)
+    password = Column(String(250), nullable=False)
+
+    # Relaciones
+    favorite_planets = relationship('Planet', secondary=user_planet_association, back_populates="users")
+    favorite_characters = relationship('Character', secondary=user_character_association, back_populates="users")
+
+    def to_dict(self):
         return {
-            "id": self.id,
-            "email": self.email,
-            # do not serialize the password, its a security breach
+            "ID": self.ID,
+            "username": self.username,
+            "firstname": self.firstname,
+            "lastname": self.lastname,
+            "favorite_planets": [planet.ID for planet in self.favorite_planets],
+            "favorite_characters": [character.ID for character in self.favorite_characters]
+        }
+
+class Planet(Base):
+    __tablename__ = 'planet'
+    ID = Column(Integer, primary_key=True)
+    name = Column(String(250), nullable=False, unique=True)
+    description = Column(String(500))
+
+    # Relaciones
+    users = relationship('User', secondary=user_planet_association, back_populates="favorite_planets")
+
+    def to_dict(self):
+        return {
+            "ID": self.ID,
+            "name": self.name,
+            "description": self.description,
+            "users": [user.ID for user in self.users]
+        }
+
+class Character(Base):
+    __tablename__ = 'character'
+    ID = Column(Integer, primary_key=True)
+    name = Column(String(250), nullable=False, unique=True)
+    description = Column(String(500))
+
+    # Relaciones
+    users = relationship('User', secondary=user_character_association, back_populates="favorite_characters")
+
+    def to_dict(self):
+        return {
+            "ID": self.ID,
+            "name": self.name,
+            "description": self.description,
+            "users": [user.ID for user in self.users]
         }
